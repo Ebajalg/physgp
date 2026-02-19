@@ -111,7 +111,7 @@ class PhysKerBase:
         else:
             label_vec2 = label_vec1
 
-        label_mat = np.matrix([[label1+label2 for label2 in label_vec1] for label1 in label_vec2])
+        label_mat = np.matrix([[label1+label2 for label2 in label_vec2] for label1 in label_vec1])
     
         return label_mat
     
@@ -136,8 +136,7 @@ class PhysKerBase:
         else:
             Y = X
         
-        
-        def K_mat_func(param_dict, sigma=(0,0), diff_param=None, inverse_problem_param=None):
+        def K_mat_func(param_dict, kernel_dict, sigma=(0,0)):
             """
             Creates the covariance matrix K based on the parameter values specified.
             If diff_param is not None, then creates the covariance matrix K differentiated 
@@ -148,18 +147,7 @@ class PhysKerBase:
             :param diff_param: Symbol of parameter value to be differentiated.
             :return: covariance matrix K.
             """
-            
-            kernel_dict_ = self.kernel_dictionary(inverse_problem_param=inverse_problem_param)
-
-            if diff_param is None:
-                kernel_dict = kernel_dict_
-            else:
-                kernel_dict = {}
-                for key, equ in kernel_dict_.items():
-                    diff_equ = equ.diff(diff_param)
-                    kernel_dict[key] = diff_equ
                 
-
             mat = np.zeros((X.shape[0], Y.shape[0]))
             
             dim_X = X.shape[1]
@@ -196,6 +184,8 @@ class PhysKerGP(Kernel):
         self.param_bounds = param_bounds
         self.param_names = param_values.keys()
 
+        self.setup_kernel_dicts()
+
         self.setup_params()
 
 
@@ -218,8 +208,18 @@ class PhysKerGP(Kernel):
         return np.vstack(list(self.param_bounds.values()))
     
 
+    def setup_kernel_dicts(self):
+        self.kernel_dict = self.phys_kernel_base.kernel_dictionary()
+        param_kernel_dict = {}
+        for param in self.param_names:
+            param_kernel_dict_iter = {key: kernel.diff(param) for key, kernel in self.kernel_dict.items()}
+            param_kernel_dict[param] = param_kernel_dict_iter
+
+        self.param_kernel_dict = param_kernel_dict
+
 
     def __call__(self, X, Y=None, eval_gradient=False):
+
         X_u = X[X[:,0]==0][:,1:]
         X_f = X[X[:,0]==1][:,1:]
 
@@ -233,12 +233,12 @@ class PhysKerGP(Kernel):
             Y_fit = (Y_u, Y_f)
 
         K_func = self.phys_kernel_base.K_func(X_fit, Y_fit)
-        K = K_func(self.param_values, sigma=self.sigma)
+        K = K_func(self.param_values, self.kernel_dict, sigma=self.sigma)
 
         if eval_gradient:
             K_gradient = np.zeros((K.shape[0], K.shape[1], len(self.param_values)))
             for i, param in enumerate(self.param_names):
-                K_gradient[:,:,i] = K_func(self.param_values, diff_param=param)
+                K_gradient[:,:,i] = K_func(self.param_values, kernel_dict=self.param_kernel_dict[param])
             return K, K_gradient
         else:
             return K
