@@ -128,10 +128,10 @@ class PhysKerBase:
         
         label_mat = self.label_matrix(X, Y)
         
-        X = np.hstack(X)
+        X = np.vstack(X)
 
         if Y is not None:
-            Y = np.hstack(Y)
+            Y = np.vstack(Y)
             Y = Y
         else:
             Y = X
@@ -159,18 +159,16 @@ class PhysKerBase:
                     diff_equ = equ.diff(diff_param)
                     kernel_dict[key] = diff_equ
                 
-            print(X)
-            print(Y)
 
-            mat = np.zeros((X.shape[1], Y.shape[1]))
+            mat = np.zeros((X.shape[0], Y.shape[0]))
             
-            dim_X = X.shape[0]
-            dim_Y = Y.shape[0]
-            
-            for i in range(X.shape[1]):
-                for j in range(Y.shape[1]):
-                    x_dict = dict(zip([f"x{ind}" for ind in range(dim_X)], X[:, i]))
-                    y_dict = dict(zip([f"y{ind}" for ind in range(dim_Y)], Y[:, j]))
+            dim_X = X.shape[1]
+            dim_Y = Y.shape[1]
+
+            for i in range(X.shape[0]):
+                for j in range(Y.shape[0]):
+                    x_dict = dict(zip([f"x{ind}" for ind in range(dim_X)], X[i, :]))
+                    y_dict = dict(zip([f"y{ind}" for ind in range(dim_Y)], Y[j, :]))
                     
                     equ = kernel_dict[label_mat[i,j]]
                     value = equ.evalf(subs={**x_dict, **y_dict, **param_dict})
@@ -222,28 +220,24 @@ class PhysKerGP(Kernel):
 
 
     def __call__(self, X, Y=None, eval_gradient=False):
-        X_u = X[X[:,0]==0][:,1:].T
-        X_f = X[X[:,0]==1][:,1:].T
+        X_u = X[X[:,0]==0][:,1:]
+        X_f = X[X[:,0]==1][:,1:]
 
         X_fit = (X_u, X_f)
 
         if Y is None:
             Y_fit = X_fit
         else:
-            Y_u = Y[Y[:,0]==0][:,1:].T
-            Y_f = Y[Y[:,0]==1][:,1:].T
+            Y_u = Y[Y[:,0]==0][:,1:]
+            Y_f = Y[Y[:,0]==1][:,1:]
             Y_fit = (Y_u, Y_f)
 
         K_func = self.phys_kernel_base.K_func(X_fit, Y_fit)
         K = K_func(self.param_values, sigma=self.sigma)
 
-        print(K)
-        print(K.shape)
-
         if eval_gradient:
             K_gradient = np.zeros((K.shape[0], K.shape[1], len(self.param_values)))
             for i, param in enumerate(self.param_names):
-                print(f"{i}-th parameter: {param}")
                 K_gradient[:,:,i] = K_func(self.param_values, diff_param=param)
             return K, K_gradient
         else:
