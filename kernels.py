@@ -1,7 +1,9 @@
 import numpy as np
 from sympy import *
 from sklearn.gaussian_process.kernels import StationaryKernelMixin, NormalizedKernelMixin, Hyperparameter, Kernel
-
+from time import time
+from inspect import signature
+import re
 
 
 class PhysKerBase:
@@ -159,7 +161,12 @@ class PhysKerBase:
                     y_dict = dict(zip([f"y{ind}" for ind in range(dim_Y)], Y[j, :]))
                     
                     equ = kernel_dict[label_mat[i,j]]
-                    value = equ.evalf(subs={**x_dict, **y_dict, **param_dict})
+                    arguments = re.sub("[() ]", "", str(signature(equ))).split(",")
+                    if arguments == ['']:
+                        value = 0
+                    else:
+                        value_dict = {k : {**x_dict, **y_dict, **param_dict}.get(k, 0) for k in arguments}
+                        value = equ(**value_dict)
 
                     if label_mat[i,j] in ['uu']:
                         value += sigma[0]**2
@@ -185,6 +192,7 @@ class PhysKerGP(Kernel):
         self.param_names = param_values.keys()
 
         self.setup_kernel_dicts()
+        self.lambdify_kernel_dict()
 
         self.setup_params()
 
@@ -218,8 +226,15 @@ class PhysKerGP(Kernel):
         self.param_kernel_dict = param_kernel_dict
 
 
-    def __call__(self, X, Y=None, eval_gradient=False):
+    def lambdify_kernel_dict(self):
+        self.kernel_dict = {key: lambdify(tuple(kernel.free_symbols), kernel)
+                             for key, kernel in self.kernel_dict.items()}
+        
+        self.param_kernel_dict = {param: {key: lambdify(tuple(kernel.free_symbols), kernel) for key, kernel in kernel_dict.items()}
+                                   for param, kernel_dict in self.param_kernel_dict.items()}
 
+
+    def __call__(self, X, Y=None, eval_gradient=False):
         X_u = X[X[:,0]==0][:,1:]
         X_f = X[X[:,0]==1][:,1:]
 
