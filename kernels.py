@@ -20,9 +20,10 @@ class PhysKerBase:
             self.boundary_conditions = lambda *x_vals : "u"
         else:
             self.boundary_conditions = lambda *x_vals : min(['b'+str(i) for i,cond in enumerate(boundary_conditions) if cond(*x_vals)]+["u"])
+
+        self.train_X = None
         
-        
-        
+           
     def kernel_dictionary(self, inverse_problem_param=None):
         """
         Builds a dictionary with all kernel functions and builds expressions for them. 
@@ -44,36 +45,35 @@ class PhysKerBase:
         self.k_uu = self.prior_kernel.u_func
         kernel_func_dict['uu'] = self.k_uu
 
-        self.k_uf = self.lin_op.subs({**{"u":self.k_uu}, **label_param_function(1)}).doit()
-        kernel_func_dict['uf'] = self.k_uf
-
-        self.k_fu = self.lin_op.subs({**{f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)},
-                                 **label_param_function(0)}).subs({"u":self.k_uu}).doit()
+        self.k_fu = self.lin_op.subs({**{"u":self.k_uu}, **label_param_function(1)}).doit()
         kernel_func_dict['fu'] = self.k_fu
 
-        self.k_ff = self.lin_op.subs({**{f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)},
-                                 **label_param_function(0)}).subs({"u":self.k_uf}).doit()
+        self.k_uf = self.lin_op.subs({**{f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)},
+                                 **label_param_function(0)}).subs({"u":self.k_uu}).doit()
+        kernel_func_dict['uf'] = self.k_uf
+
+        self.k_ff = self.lin_op.subs({**{"u":self.k_uf}, **label_param_function(1)}).doit()
         kernel_func_dict['ff'] = self.k_ff
         
         
         # Constructing functions that interact with boundary operators
         if self.boundary_operators is not None:
             for i,B in enumerate(self.boundary_operators):
-                self.k_ub = B.subs({"u":self.k_uu}).doit()
-                kernel_func_dict[f"ub{i}"] = self.k_ub
-
-                self.k_bu = B.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_uu}).doit()
+                self.k_bu = B.subs({"u":self.k_uu}).doit()
                 kernel_func_dict[f"b{i}u"] = self.k_bu
-                
-                self.k_fb = B.subs({"u":self.k_uf}).doit()
-                kernel_func_dict[f"fb{i}"] = self.k_fb
 
-                self.k_bf = B.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_uf}).doit()
+                self.k_ub = B.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_uu}).doit()
+                kernel_func_dict[f"ub{i}"] = self.k_ub
+                
+                self.k_bf = B.subs({"u":self.k_uf}).doit()
                 kernel_func_dict[f"b{i}f"] = self.k_bf
+
+                self.k_fb = B.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_fu}).doit()
+                kernel_func_dict[f"fb{i}"] = self.k_fb
                 
                 for j,D in enumerate(self.boundary_operators):
-                    self.k_db = D.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_ub}).doit()
-                    kernel_func_dict[f"b{j}b{i}"] = self.k_db
+                    self.k_bd = D.subs({f"x{i}":f"y{i}" for i in range(self.prior_kernel.dim)}).subs({"u":self.k_bu}).doit()
+                    kernel_func_dict[f"b{i}b{j}"] = self.k_bd
                 
         return kernel_func_dict
     
@@ -89,6 +89,10 @@ class PhysKerBase:
         :param Y: Tuple of points in the domain of u and f, (Y_u, Y_f), if different to X.
         :return: Matrix with labels for which kernel function should be used.
         """
+        if self.train_X is None:
+            self.train_X = X
+
+
         def label_vec_func(X_u, X_f):
             label_vec = []
             for u_point in X_u:
@@ -104,7 +108,7 @@ class PhysKerBase:
         X_f = X[1]
 
         if Y is None:
-            X = Y
+            Y = X
 
         Y_u = Y[0]
         Y_f = Y[1]
@@ -116,15 +120,20 @@ class PhysKerBase:
                 
                 
         if label_both:
-            label_vec1 = label_vec_func(X_u, X_f)
-            label_vec2 = label_vec_func(Y_u, Y_f)
-        else:
-            if X_u.shape[0] > Y_u.shape[0]:
-                label_vec2 = label_vec_func(Y_u, Y_f)
-                label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
-            else:
+            if X_u.shape[0] == self.train_X[0].shape[0]:    
                 label_vec1 = label_vec_func(X_u, X_f)
+                label_vec2 = label_vec_func(Y_u, Y_f)
+            else:
+                print("Hi")
+                print(X_u.shape, Y_u.shape)
+                print(X_f.shape, Y_f.shape)
+                label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
                 label_vec2 = ['u' for i in range(Y_u.shape[0])] + ['f' for i in range(Y_f.shape[0])]
+                print(label_vec1)
+                print(label_vec2)
+        else:
+            label_vec2 = label_vec_func(Y_u, Y_f)
+            label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
 
 
         label_mat = np.matrix([[label1+label2 for label2 in label_vec2] for label1 in label_vec1])
@@ -179,7 +188,7 @@ class PhysKerBase:
                     if arguments == ['']:
                         value = 0
                     else:
-                        value_dict = {k : {**x_dict, **y_dict, **param_dict}.get(k, 0) for k in arguments}
+                        value_dict = {k : {**x_dict, **y_dict, **param_dict}.get(k, None) for k in arguments}
                         value = equ(**value_dict)
 
                     if label_mat[i,j] in ['uu']:
@@ -198,6 +207,7 @@ class PhysKerBase:
 
 class PhysKerGP(Kernel):
     def __init__(self, phys_kernel_base, param_values, param_bounds, sigma=(1e-3,1e-3)):
+        phys_kernel_base.train_X = None
         self.phys_kernel_base = phys_kernel_base
         
         self.sigma = sigma
@@ -209,6 +219,7 @@ class PhysKerGP(Kernel):
         self.lambdify_kernel_dict()
 
         self.setup_params()
+
 
 
     def setup_params(self):
