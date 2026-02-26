@@ -89,29 +89,43 @@ class PhysKerBase:
         :param Y: Tuple of points in the domain of u and f, (Y_u, Y_f), if different to X.
         :return: Matrix with labels for which kernel function should be used.
         """
+        def label_vec_func(X_u, X_f):
+            label_vec = []
+            for u_point in X_u:
+                label = self.boundary_conditions(*u_point)
+                label_vec.append(label)
         
+            label_vec += ['f' for i in range(X_f.shape[0])]
+
+            return label_vec
+
+
         X_u = X[0]
         X_f = X[1]
-    
-        label_vec1 = []
-        for u_point in X_u:
-            label = self.boundary_conditions(*u_point)
-            label_vec1.append(label)
-    
-        label_vec1 += ['f' for i in range(X_f.shape[0])]
-    
-        if Y is not None:
-            Y_u = Y[0]
-            Y_f = Y[1]
-    
-            label_vec2 = []
-            for u_point in Y_u:
-                label = self.boundary_conditions(*u_point)
-                label_vec2.append(label)
-    
-            label_vec2 += ['f' for i in range(Y_f.shape[0])]
+
+        if Y is None:
+            X = Y
+
+        Y_u = Y[0]
+        Y_f = Y[1]
+
+        label_both = False
+        if X_u.shape == Y_u.shape:
+            if X_u.shape[0] == Y_u.shape[0] and np.allclose(X_u, Y_u):
+                label_both = True
+                
+                
+        if label_both:
+            label_vec1 = label_vec_func(X_u, X_f)
+            label_vec2 = label_vec_func(Y_u, Y_f)
         else:
-            label_vec2 = label_vec1
+            if X_u.shape[0] > Y_u.shape[0]:
+                label_vec2 = label_vec_func(Y_u, Y_f)
+                label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
+            else:
+                label_vec1 = label_vec_func(X_u, X_f)
+                label_vec2 = ['u' for i in range(Y_u.shape[0])] + ['f' for i in range(Y_f.shape[0])]
+
 
         label_mat = np.matrix([[label1+label2 for label2 in label_vec2] for label1 in label_vec1])
     
