@@ -16,10 +16,12 @@ class PhysKerBase:
 
         self.params_to_specify = [i for i in tuple(self.lin_op.free_symbols)+tuple(self.prior_kernel.u_func.free_symbols) 
                                   if not (str(i).startswith("x") or str(i).startswith("u") or str(i).startswith("y"))]
-        for boundary_operator in boundary_operators:
-            boundary_params = [i for i in tuple(boundary_operator.free_symbols)
-                                  if not (str(i).startswith("x") or str(i).startswith("u") or str(i).startswith("y"))]
-            self.params_to_specify = self.params_to_specify + boundary_params
+        
+        if not boundary_operators is None:
+            for boundary_operator in boundary_operators:
+                boundary_params = [i for i in tuple(boundary_operator.free_symbols)
+                                    if not (str(i).startswith("x") or str(i).startswith("u") or str(i).startswith("y"))]
+                self.params_to_specify = self.params_to_specify + boundary_params
 
         # Specifying boundary
         self.boundary_operators = boundary_operators
@@ -29,6 +31,8 @@ class PhysKerBase:
             self.boundary_conditions = lambda *x_vals : sorted(['b'+str(i) for i,cond in enumerate(boundary_conditions) if cond(*x_vals)]+["u"])
 
         self.train_X = None
+
+        self.kernel_expression_dict = self.kernel_dictionary()
         
            
     def kernel_dictionary(self, inverse_problem_param=None):
