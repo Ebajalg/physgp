@@ -14,12 +14,19 @@ class PhysKerBase:
         # Extracting params in linear operator 
         self.lin_op_params = [i for i in tuple(self.lin_op.free_symbols) if not (str(i).startswith("x") or str(i).startswith("u"))]
 
+        self.params_to_specify = [i for i in tuple(self.lin_op.free_symbols)+tuple(self.prior_kernel.u_func.free_symbols) 
+                                  if not (str(i).startswith("x") or str(i).startswith("u") or str(i).startswith("y"))]
+        for boundary_operator in boundary_operators:
+            boundary_params = [i for i in tuple(boundary_operator.free_symbols)
+                                  if not (str(i).startswith("x") or str(i).startswith("u") or str(i).startswith("y"))]
+            self.params_to_specify = self.params_to_specify + boundary_params
+
         # Specifying boundary
         self.boundary_operators = boundary_operators
         if boundary_conditions is None:
             self.boundary_conditions = lambda *x_vals : "u"
         else:
-            self.boundary_conditions = lambda *x_vals : min(['b'+str(i) for i,cond in enumerate(boundary_conditions) if cond(*x_vals)]+["u"])
+            self.boundary_conditions = lambda *x_vals : sorted(['b'+str(i) for i,cond in enumerate(boundary_conditions) if cond(*x_vals)]+["u"])
 
         self.train_X = None
         
@@ -95,8 +102,13 @@ class PhysKerBase:
 
         def label_vec_func(X_u, X_f):
             label_vec = []
-            for u_point in X_u:
-                label = self.boundary_conditions(*u_point)
+            for i,u_point in enumerate(X_u):
+                label_list = self.boundary_conditions(u_point)
+                if sum(X_u == u_point) > 1:
+                    index = np.where(i == np.where(X_u == u_point)[0])[0][0]
+                    label = label_list[index]
+                else:
+                    label = label_list[0]
                 label_vec.append(label)
         
             label_vec += ['f' for i in range(X_f.shape[0])]
@@ -124,13 +136,8 @@ class PhysKerBase:
                 label_vec1 = label_vec_func(X_u, X_f)
                 label_vec2 = label_vec_func(Y_u, Y_f)
             else:
-                print("Hi")
-                print(X_u.shape, Y_u.shape)
-                print(X_f.shape, Y_f.shape)
                 label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
                 label_vec2 = ['u' for i in range(Y_u.shape[0])] + ['f' for i in range(Y_f.shape[0])]
-                print(label_vec1)
-                print(label_vec2)
         else:
             label_vec2 = label_vec_func(Y_u, Y_f)
             label_vec1 = ['u' for i in range(X_u.shape[0])] + ['f' for i in range(X_f.shape[0])]
