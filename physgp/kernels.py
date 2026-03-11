@@ -1,7 +1,6 @@
 import numpy as np
 from sympy import *
 from sklearn.gaussian_process.kernels import StationaryKernelMixin, NormalizedKernelMixin, Hyperparameter, Kernel
-from time import time
 from inspect import signature
 import re
 
@@ -108,8 +107,11 @@ class PhysKerBase:
             label_vec = []
             for i,u_point in enumerate(X_u):
                 label_list = self.boundary_conditions(u_point)
-                if sum(X_u == u_point) > 1:
-                    index = np.where(i == np.where(X_u == u_point)[0])[0][0]
+                if len(label_list) == 1:
+                    label_vec.append(label_list[0])
+                    continue
+                if sum(np.all(X_u == u_point, axis=1)) > 1:
+                    index = np.where(i == np.where(np.all(X_u == u_point, axis=1))[0])[0][0]
                     label = label_list[index]
                 else:
                     label = label_list[0]
