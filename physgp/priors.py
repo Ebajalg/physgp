@@ -43,7 +43,8 @@ class CompoundKernel(PriorKernel):
 
 class SquExpKernel(PriorKernel):
     def __init__(self, dim, param_symbols=("w", "s")):
-        self.dim = dim
+        self.dim_ = dim
+        self.dim = max(dim) if isinstance(dim, list) else dim
         self.param_symbols = param_symbols
         self.data_symbols = ("x", "y")
         self.u_func = self.construct()
@@ -51,8 +52,13 @@ class SquExpKernel(PriorKernel):
     def construct(self):
         expression_list = []
 
-        for i in range(self.dim):
-            expression_list.append(f"{self.param_symbols[0]}{i}*({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})^2")
+        if isinstance(self.dim_, list):
+            for i in range(self.dim+1):
+                if i in self.dim_: 
+                    expression_list.append(f"{self.param_symbols[0]}{i}*({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})^2")
+        else:
+            for i in range(self.dim):
+                expression_list.append(f"{self.param_symbols[0]}{i}*({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})^2")
 
         expression = " + ".join(expression_list)
         u_func = sympify(f"({self.param_symbols[1]}^2)*exp(-({expression})/2)")
@@ -63,7 +69,8 @@ class SquExpKernel(PriorKernel):
 
 class PeriodicKernel(PriorKernel):
     def __init__(self, dim, param_symbols=("l", "p", "s")):
-        self.dim = dim
+        self.dim_ = dim
+        self.dim = max(dim) if isinstance(dim, list) else dim
         self.param_symbols = param_symbols
         self.data_symbols = ("x", "y")
         self.u_func = self.construct()
@@ -71,8 +78,14 @@ class PeriodicKernel(PriorKernel):
     def construct(self):
         expression_list = []
 
-        for i in range(self.dim): 
-            expression_list.append(f"({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})")
+
+        if isinstance(self.dim_, list):
+            for i in range(self.dim+1):
+                if i in self.dim_: 
+                    expression_list.append(f"({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})")
+        else:
+            for i in range(self.dim): 
+                expression_list.append(f"({self.data_symbols[0]}{i}-{self.data_symbols[1]}{i})")
 
         expression = " + ".join(expression_list)
         u_func = sympify(f"({self.param_symbols[2]}^2)*exp(-(2/{self.param_symbols[0]}^2)*sin({expression}*(pi/{self.param_symbols[1]}))**2)")
@@ -83,7 +96,8 @@ class PeriodicKernel(PriorKernel):
 
 class LinearKernel(PriorKernel):
     def __init__(self, dim, param_symbols=("m", "c")):
-        self.dim = dim
+        self.dim_ = dim
+        self.dim = max(dim) if isinstance(dim, list) else dim
         self.param_symbols = param_symbols
         self.data_symbols = ("x", "y")
         self.u_func = self.construct()
@@ -91,8 +105,13 @@ class LinearKernel(PriorKernel):
     def construct(self):
         expression_list = []
 
-        for i in range(self.dim): 
-            expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
+        if isinstance(self.dim_, list):
+            for i in range(self.dim+1):
+                if i in self.dim_: 
+                    expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
+        else:
+            for i in range(self.dim): 
+                expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
         
         expression = " + ".join(expression_list)
         u_func = sympify(f"{self.param_symbols[0]}*({expression}) + {self.param_symbols[1]}")
@@ -103,7 +122,8 @@ class LinearKernel(PriorKernel):
 
 class PolyKernel(PriorKernel):
     def __init__(self, dim, param_symbols=("m", "c", "k")):
-        self.dim = dim
+        self.dim_ = dim
+        self.dim = max(dim) if isinstance(dim, list) else dim
         self.param_symbols = param_symbols
         self.data_symbols = ("x", "y")
         self.u_func = self.construct()
@@ -111,8 +131,13 @@ class PolyKernel(PriorKernel):
     def construct(self):
         expression_list = []
 
-        for i in range(self.dim): 
-            expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
+        if isinstance(self.dim_, list):
+            for i in range(self.dim+1):
+                if i in self.dim_:  
+                    expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
+        else:
+            for i in range(self.dim): 
+                expression_list.append(f"{self.data_symbols[0]}{i}*{self.data_symbols[1]}{i}")
         
         expression = " + ".join(expression_list)
         u_func = sympify(f"({self.param_symbols[0]}*({expression}) + {self.param_symbols[1]})^{self.param_symbols[2]}")

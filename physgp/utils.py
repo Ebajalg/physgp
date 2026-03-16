@@ -88,42 +88,40 @@ def gen_point_grid(N, bounds, type_sample="uniform"):
         type_sample = np.repeat(type_sample, dim)
 
     # Rescale function for if include_boundary is set to True
-    rescale = lambda a,b,vec : (a+b)/2 + ((b-a)/2)*vec
+    rescale = lambda a,b,vec : a + (b-a)*((vec-min(vec))/(max(vec)-min(vec)))
 
     points_list = []
     # Loop through bounds and N values
-    for i, n, bound in enumerate(zip(N, bounds)):
-
+    for i, (n, bound) in enumerate(zip(N, bounds)):
         # Check type_sample and sample the subspace.
         if type_sample[i] == "uniform":
             points = np.linspace(bound[0], bound[1], n)
 
-        if type_sample[i] == "chebyshev":
+        elif type_sample[i] == "chebyshev":
             points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, 1)[0])
 
-        if type_sample[i] == "legendre":
+        elif type_sample[i] == "legendre":
             points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, 0.5)[0])
 
+        elif type_sample[i] == "random":
+            points = rescale(bound[0], bound[1], np.random.normal(-1, 1, n))
 
-        if type_sample[i] == "legendre":
-            points = np.random.normal(bound[0], bound[1], n)
-
-        if isinstance(type_sample[i],int):
+        elif isinstance(type_sample[i],int):
             points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, type_sample[i])[0])
 
 
         else:
             # Raise error if incorrect type_sample has been provided.
             raise ValueError("Please specify type as either a lambda value or either " \
-            "'uniform', 'chebyshev' or 'legendre', or a list combination of them.")
+            "'uniform', 'chebyshev', 'legendre' or 'random', or a list combination of them.")
         
         points_list.append(points)
         
     # Form hypercube grid.
-    point_grid = np.meshgrid(tuple(points_list))
+    point_grid = np.meshgrid(*tuple(points_list))
 
     # Convert from grid to vector of points.
-    point_vector = np.vstack((ps.ravel() for ps in point_grid)).T
+    point_vector = np.vstack(tuple([ps.ravel() for ps in point_grid])).T
 
     return point_vector
 
