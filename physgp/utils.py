@@ -1,4 +1,6 @@
 import numpy as np
+import scipy.special as sp
+
 
 def obs_concat(X_u=None, X_f=None):
     """
@@ -53,3 +55,76 @@ def gen_gp_sample(m, K, alpha=1e-10):
     # Returning the sampled function.
     # (realised at the points the mean vector was specified for)
     return m + K_sqrt @ norm_rand
+
+
+
+def gen_point_grid(N, bounds, type_sample="uniform"):
+    """
+    Generates a grid of points within the hypercube definied
+    by the tensor product of bounds. 
+
+    :param N: int or list - specifies how many points should be in each
+              1-d subspace of the hypercube.
+    :param bounds: list of tuples - defines the bounds for each subspace,
+                   tensor product of the bounds forms the hypercube.
+    :param type_sample: str, int or list - defines the way in which the points are
+                        sampled in each subspace, can either be one of 
+                        ['uniform', 'chebyshev', 'legendre', 'random'] or an number corresponding
+                        to the value for the lambda parameter for a
+                        ultraspherical polynomial whose roots are used to sample the subspace.
+    """
+
+    # Get dimensions for hypercube.
+    dim = len(bounds)
+
+    # Check if only one N has been provided.
+    if isinstance(N, int):
+        N = np.repeat(N, dim)
+
+    # Check if only one type_sample has been provided.
+    if isinstance(type_sample, str):
+        type_sample = np.repeat(type_sample, dim)
+    if isinstance(type_sample, int):
+        type_sample = np.repeat(type_sample, dim)
+
+    # Rescale function for if include_boundary is set to True
+    rescale = lambda a,b,vec : (a+b)/2 + ((b-a)/2)*vec
+
+    points_list = []
+    # Loop through bounds and N values
+    for i, n, bound in enumerate(zip(N, bounds)):
+
+        # Check type_sample and sample the subspace.
+        if type_sample[i] == "uniform":
+            points = np.linspace(bound[0], bound[1], n)
+
+        if type_sample[i] == "chebyshev":
+            points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, 1)[0])
+
+        if type_sample[i] == "legendre":
+            points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, 0.5)[0])
+
+
+        if type_sample[i] == "legendre":
+            points = np.random.normal(bound[0], bound[1], n)
+
+        if isinstance(type_sample[i],int):
+            points = rescale(bound[0], bound[1], sp.roots_gegenbauer(n, type_sample[i])[0])
+
+
+        else:
+            # Raise error if incorrect type_sample has been provided.
+            raise ValueError("Please specify type as either a lambda value or either " \
+            "'uniform', 'chebyshev' or 'legendre', or a list combination of them.")
+        
+        points_list.append(points)
+        
+    # Form hypercube grid.
+    point_grid = np.meshgrid(tuple(points_list))
+
+    # Convert from grid to vector of points.
+    point_vector = np.vstack((ps.ravel() for ps in point_grid)).T
+
+    return point_vector
+
+        
